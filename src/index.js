@@ -1,225 +1,215 @@
 import * as d3 from 'd3';
-import d3tip from 'd3-tip';
 import jquery from 'jquery';
 import * as jqueryui from 'jquery-ui-bundle';
 
-// ADD THESE AT TOP
-var margin = { left: 80, right: 20, top: 50, bottom: 100};
-var width = 600 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
+var margin = { left: 80, right: 100, top: 30, bottom: 70 };
+var height = 400 - margin.top - margin.bottom;
+var width = 1100 - margin.left - margin.right;
 
-var g = d3.select("#chart-area")
-    .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr('height', height + margin.top + margin.bottom)
-    .append("g")
-        .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+var svg = d3.select("#chart-area")
+  .append("svg")
+  .attr("width", width + margin.left + margin.right)
+  .attr("height", height + margin.top + margin.bottom)
 
-var time = 0;   // NOTE IT'S IMPORTANT TO KEEP MS LOWER THAN LOOP'S DELAY
-var interval;
-var workingData;
+var g = svg.append("g")
+  .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
 
-// TOOLTIP
-    var tip = d3tip().attr('className', 'd3-tip').html(function(d) {
-        var text = "<strong>Country:</strong> <span style='color:red'>" + d.country + "</span><br>";
-        text += "<strong>Continent:</strong> <span style='color:red;text-transform:capitalize'>" + d.continent + "</span><br>";
-        text += "<strong>Life Expectancy:</strong> <span style='color:red'>" + d3.format(".2f")(d.life_exp) + "</span><br>";
-        text += "<strong>GDP Per Capita:</strong> <span style='color:red'>" + d3.format("$,.0f")(d.income) + "</span><br>";
-        text += "<strong>Population:</strong> <span style='color:red'>" + d3.format(",.0f")(d.population) + "</span><br>";
-        return text;
-    })
+var t = function() {return d3.transition().duration(1000)}
+var filteredData = {};
+var dataTimeFiltered = {};
 
-    g.call(tip);
+// Time parser for x-scale
+var parseTime = d3.timeParse("%d/%m/%Y");
+var formatTime = d3.timeFormat("%m/%d/%Y");
+// For tooltip
+var bisectDate = d3.bisector(function(d) {
+  return d.date }).left;
 
-// SCALES
-    var x = d3.scaleLog()
-        .base(10)
-        .range([0, width])
-        .domain([142, 150000])
-
-    var y = d3.scaleLinear()
-        .range([height, 0])
-        .domain([0, 90]);
-
-    var area = d3.scaleLinear()
-        .range([25*Math.PI, 1500*Math.PI])
-        .domain([2000, 1400000000])
-
-    var continentColor = d3.scaleOrdinal(d3.schemePastel1);
+// ADD LINE FOR THE FIRST TIME
+g.append("path")                
+  .attr("class", "line")
+  .attr("fill", "none")
+  .attr("stroke", "grey")
+  .attr("stroke-width", "3px")
 
 // LABELS
-    var xLabel = g.append("text")
-        // .attr("className", "x axis-label")
-        .attr("x", width/2)
-        .attr("y", height + 50)
-        // .attr("y", height + 140)
-        .attr("font-size", "20px")
-        .attr("text-anchor", "middle")
-        .text("GDP Per Capita ($)")
+  var xLabel = g.append("text")
+    .attr("class", "x axisLabel")
+    .attr("y", height + 60)
+    .attr("x", width/2)
+    .attr("font-size", "20px")
+    .attr("text-anchor", "middle")
+    .text("Time")
 
-    var yLabel = g.append("text")
-        // .attr("className", "y axis-label")
-        .attr("x", -170)
-        .attr("y", -40)
-        .attr("font-size", "20px")
-        .attr("text-anchor", "middle")
-        .attr("transform", "rotate(-90)")
-        .text("Life Expectancy (Years)")
+  var yLabel = g.append("text")
+    .attr("class", "y axisLabel")
+    .attr("transform", "rotate(-90)")
+    .attr("y", -60)
+    .attr("x", -170)
+    .attr("font-size", "20px")
+    .attr("text-anchor", "middle")
+    .text("Price (USD)")
 
-    var timeLabel = g.append("text")
-        .attr("y", height - 10)
-        .attr("x", width - 40)
-        .attr("font-size", "40px")
-        .attr("opacity", "0.4")
-        .attr("text-anchor", "middle")
-        .text("1800");
+
+// Scales
+var x = d3.scaleTime().range([0, width]);
+var y = d3.scaleLinear().range([height, 0]);
 
 // X AXIS
-    var xAxisCall = d3.axisBottom(x)
-        .tickValues([400, 4000, 40000])
-        .tickFormat(d3.format("$"))
-    g.append("g")
-        .attr("className", "x axis")
-        .attr("transform", "translate(0," + height + ")")
-        .call(xAxisCall);
+var xAxisCall = d3.axisBottom()
+  .ticks(4);
+var xAxis = g.append("g")
+  .attr("class", "x axis")
+  .attr("transform", "translate(0," + height + ")");
 
-// Y AXIS  
-    var yAxisCall = d3.axisLeft(y)
-        .tickFormat(function(d) {return +d});
-    g.append("g")
-        .attr("className", "y axis")
-        .call(yAxisCall);
+// Y AXIS
+var yAxisCall = d3.axisLeft()
 
-    var continents = ["europe", "asia", "americas", "africa"];
+var yAxis = g.append("g")
+  .attr("class", "y axis");
 
-// LEGEND
-    var legend = g.append("g")
-        .attr("transform", "translate(" + (width - 10) + "," + (height - 125) + ")");
+// JQUERY CHANGES
+jquery("#coin-select").on("change", update)
+jquery("#var-select").on("change", update)
 
-    continents.forEach(function(continent, i) {
-        var legendRow = legend.append("g")
-            .attr("transform", "translate(0, " + (i * 20) + ")")
+jquery("#date-slider").slider({
+  range: true,
+  max: parseTime("10/31/2017").getTime(),
+  min: parseTime("05/12/2013").getTime(),
+  step: 86400000,
+  values: [parseTime("05/12/2013").getTime(), parseTime("10/31/2017").getTime()],
+  slide: function(event, ui) {
+    $("#dateLabel1").text(formatTime(new Date(ui.values[0])));
+    $("#dateLabel2").text(formatTime(new Date(ui.values[1])));
+    update();
+  }
+});
 
-        legendRow.append("rect")
-            .attr("width", 10)
-            .attr("height", 10)
-            .attr("fill", continentColor(continent));
+d3.json("data/coins.json").then(function(data) {
+  console.log(data);
+  // var filteredData= {};
 
-        legendRow.append("text")
-            .attr("x", -10)
-            .attr("y", 10)
-            .attr("text-anchor", "end")
-            .style("text-transform", "capitalize")
-            .text(continent)
+  for (let coin in data) {
+      if (!data.hasOwnProperty(coin)) {
+          continue
+      }
+      filteredData[coin] = data[coin].filter(function(d) {
+        return !(d["price_usd"] == null)
+      })
+
+      filteredData[coin].forEach(function(d) {
+        d["price_usd"] = +d["price_usd"];
+        d["24h_vol"] = +d["24h_vol"];
+        d["market_cap"] = +d["market_cap"];
+        d["date"] = parseTime(d["date"]);
+      })
+  }
+  console.log(filteredData);
+  
+    update();
+});
+
+function update() {
+  var coin = jquery("#coin-select").val();
+  var yValue = jquery("#var-select").val();
+  var sliderValues = jquery("#date-slider").slider("values");
+
+  var dataTimeFiltered = filteredData[coin].filter(function(d) {
+    return ((d.date >= sliderValues[0]) && (d.date <= sliderValues[1]))
+  })
+
+  console.log(dataTimeFiltered);
+  // Set scale domains
+  x.domain(d3.extent(dataTimeFiltered, function(d) {
+      return d.date })
+  );
+
+  y.domain([d3.min(dataTimeFiltered, function(d) {
+      return d[yValue]}) / 1.005,
+    d3.max(dataTimeFiltered, function(d) {
+      return d[yValue]}) * 1.005]);
+
+  var formatSi = d3.format(".2s")
+
+  function formatAbbreviation(x) {
+    var s = formatSi(x);
+
+    switch (s[s.length - 1]) {
+      case "G": return s.slice(0, -1) + "B";
+      case "k": return s.slice(0, -1) + "K";
+    }
+    return s;
+  }
+
+// UPDATE AXES
+xAxisCall.scale(x);
+xAxis.transition(t()).call(xAxisCall);
+yAxisCall.scale(y);
+yAxis.transition(t()).call(yAxisCall.tickFormat(formatAbbreviation));
+
+d3.select(".focus").remove();
+d3.select(".overlay").remove();
+
+
+  /******************************** Tooltip Code ********************************/
+
+  var focus = g.append("g").attr("className", "focus").style("display", "none");
+
+  focus.append("line")
+    .attr("class", "x-hover-line hover-line")
+    .attr("y1", 0)
+    .attr("y2", height);
+
+  focus.append("line")
+    .attr("class", "y-hover-line hover-line")
+    .attr("x1", 0)
+    .attr("x2", width);
+
+  focus.append("circle").attr("r", 5);
+
+  focus.append("text").attr("x", 15).attr("dy", ".31em");
+
+  svg
+    .append("rect")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    // .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    .attr("class", "overlay")
+    // .attr("fill", "red")
+    .attr("width", width)
+    .attr("height", height)
+    .on("mouseover", function() { focus.style("display", null)})
+    .on("mouseout", function() { focus.style("display", "none")})
+    .on("mousemove", mousemove);
+
+  function mousemove() {
+    var x0 = x.invert(d3.mouse(this)[0]),
+      i = bisectDate(dataTimeFiltered, x0, 1),
+      d0 = dataTimeFiltered[i - 1],
+      d1 = dataTimeFiltered[i],
+
+      d = (d1 && d0) ? (x0 - d0.date > d1.date - x0 ? d1 : d0) : 0;
+
+    focus.attr("transform", "translate(" + x(d.date) + "," + y(d[yValue]) + ")");
+    focus.select("text").text(function() {
+      // var result = (d[yValue]) ? (d3.format("$, ")(d[yValue].toFixed(2))) : ("")
+      return d3.format("$,")(d[yValue].toFixed(2))
     });
+    focus.select(".x-hover-line").attr("y2", height - y(d[yValue]));
+    focus.select(".y-hover-line").attr("x2", -x(d.date));
+  }
 
-// DATA SCRUB
-    d3.json("data/data.json").then(function(data) {
-        console.log(data)
+  // PATH GENERATOR
+  var line = d3.line()
+    .x(function(d) { return x(d.date) })
+    .y(function(d) { return y(d[yValue]) })
 
-        workingData = data.map(function(year) {                         // workingData IS NOW GLOBAL VARIABLE
-            return year["countries"].filter(function(country) {
-                var okCountry = (country.income && country.life_exp);
-                return okCountry
-            }).map(function(country) {
-                country.income = +country.income;
-                country.life_exp = +country.life_exp;
-                return country;
-            })
-        })
+  g.select(".line")
+    .attr("stroke", "white")
+    .transition(t)
+    .attr("d", line(dataTimeFiltered))
 
-        // RUNNING VIS FOR FIRST TIME
-        update(workingData[0]);
-    });
-
-// JQUERY BUTTONS
-
-    // if (typeof jQuery !== 'undefined') {
-    //     console.log('jQuery Loaded');
-    // } else { console.log('not loaded yet')}
-
-    jquery("#play-button").on("click", function () {
-        var button = $(this);
-        if (button.text() == "Play") {
-            button.text("Pause");
-            interval = setInterval(step, 100);
-        } else {
-            button.text("Play");
-            clearInterval(interval);
-        }
-    });
-
-    jquery("#reset-button").on("click", function () {
-        time = 0;
-        update(workingData[0]);
-    });
-
-    jquery("#continent-select").on("change", function () {
-        update(workingData[time]);
-    });
-
-    jquery("#date-slider").slider({
-        max: 2014,
-        min: 1800,
-        step: 1,
-        slide: function (event, ui) {
-            time = ui.value - 1800;
-            update(workingData[time]);
-        },
-    });
-
-
-
-   
-
-// ----------------------------------------------
-function step() {
-    time = (time < 214) ? time + 1 : 0      // ONCE GO THROUGH ALL DATA, LOOP BACK
-    update(workingData[time]);
-} 
-
-function update(data) {
-    var t = d3.transition()
-        .duration(100)
-
-    var continent = $("#continent-select").val();
-
-    var data = data.filter(function(d) {
-        if (continent == "all") {
-            return true
-        } else { return d.continent == continent}
-    })
-
-    // JOIN NEW DATA WITH OLD ELEMENTS 
-    var circles = g.selectAll("circle")
-        .data(data, function(d) {
-            return d.country
-        })
-
-    // REMOVE OLD ELEMENTS NOT PRESENT IN NEW DATA
-    circles.exit()
-        .attr("className", "exit")
-            .remove()             
-
-    // CREATE NEW SVG FOR NEW ELEMENTS PRESENT IN NEW DATA
-    circles.enter()
-        .append("circle")
-        .attr("className", "enter")
-        .attr("fill", function(d) {
-            return continentColor(d.continent)
-        })
-        .on('mouseover', tip.show)        // EVENT HANDLERS ADDED BEFORE UPDATE
-        .on('mouseout', tip.hide)
-        .merge(circles)                   // UPDATES OLD ELEMENTS PRESENT IN NEW DATA
-        .transition(t)
-        // .transition(d3.transition().duration(500))       // SWAP OUT FOR VARIABLE
-            .attr("cy", function(d) {return y(d.life_exp)})
-            .attr("cx", function(d) {return x(d.income)})
-            .attr("r", function(d) { return Math.sqrt(area(d.population) / Math.PI)})
-
-    timeLabel.text(+(time + 1800))
-    jquery("#year")[0].innerHTML = +(time + 1800)
-
-    jquery("#date-slider").slider("value", +(time + 1800))
+  var newText = (yValue === "price_usd") ? "Price (USD)" :
+    ((yValue === "market_cap") ? "Market Capitalization (USD)" : "24 Hour Trading Volume (USD)")
+  yLabel.text(newText);
 }
 

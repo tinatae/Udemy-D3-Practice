@@ -1,4 +1,8 @@
-.d3-tip {
+
+
+/* ----------------------------------------------------------------------------- */
+/* FOR BUBBLE CHART */
+/* .d3-tip {
     line-height: 1;
     font-weight: BeforeUnloadEvent;
     padding: 12px;
@@ -12,14 +16,11 @@
     box-sizing: border-box;
     display: inline;
     font-size: 10px;
-    /* width: 100%; */
     line-height: 1;
     color: rgba(0, 0, 0, 0.8);
     position: absolute;
     pointer-events: none;
 }
-
-/* ----------------------------------------------------------------------------- */
 
 #chart-area svg {
 	margin-left: auto;
@@ -55,4 +56,50 @@
 	width: 150px;
 	float:right;
 	margin-top:5px;
+} */
+
+#chart-area svg {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #D4D8DA;
+  stroke-width: 2px;
+  shape-rendering: crispEdges;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2px;
+  stroke: green;
+}
+
+.overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+.focus circle {
+  fill: #F1F3F3;
+  stroke: #777;
+  stroke-width: 3px;
+}
+  
+.hover-line {
+  stroke: #777;
+  stroke-width: 2px;
+  stroke-dasharray: 3,3;
+}
+
+#selections .col-md-4 {
+  padding-top: 10px;
+  padding-bottom: 10px;
 }

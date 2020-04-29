@@ -1,0 +1,52 @@
+// for bubble example
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>D3 Exercises</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="../css/jquery-ui.min.css">
+    <link rel="stylesheet" href="../css/jquery-ui.structure.min.css">
+    <link rel="stylesheet" href="../css/jquery-ui.theme.min.css">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+            <button id="play-button" class="btn btn-primary">Play</button>
+            <button id="reset-button" class="btn btn-primary">Reset</button>
+            <div id="slider-div">
+                <label>Year: <span id="year">1800</span></label>
+                <div id="date-slider"></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <select id="continent-select" class="form-control">
+                <option selected value="all">All</option>
+                <option value="europe">Europe</option>
+                <option value="asia">Asia</option>
+                <option value="americas">Americas</option>
+                <option value="africa">Africa</option>
+            </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div id="chart-area"></div>
+        </div>
+    </div>
+</div>
+
+    <script src="./d3-tip.js"></script>
+    <!-- <script src="./index.js"></script> -->
+
+    
+</body>
+
+</html>
